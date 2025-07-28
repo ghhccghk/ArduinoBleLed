@@ -100,11 +100,13 @@ void handleBLE() {
         char c = Serial1.read();
         if (c == '\r' || c == '\n') {
             if (bleBuffer.length() > 0) {
+                bleBuffer.trim();
                 Serial.print("[BLE] ");
                 Serial.println(bleBuffer);
                 if (Serial.available() == 0) {
                     if (bleBuffer.startsWith("FILL") || bleBuffer.startsWith("PIX") ||
-                        bleBuffer == "CLEAR" || bleBuffer == "FRAME_BEGIN") {
+                        bleBuffer == "CLEAR" || bleBuffer == "FRAME_BEGIN" ||
+                        bleBuffer.startsWith("SAVEBGN") || bleBuffer.startsWith("BGN")) {
                         processCommand(bleBuffer.c_str());
                     }
                 }
@@ -143,7 +145,6 @@ void setBrightness(int b) {
     Serial.print(b);
     Serial.println(" SetBrightness ok");
 }
-
 //保存亮度
 void saveBrightness() {
     if (millis() - lastSave > SAVE_INTERVAL) {

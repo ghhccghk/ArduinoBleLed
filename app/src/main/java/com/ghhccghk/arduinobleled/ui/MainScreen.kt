@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import com.ghhccghk.arduinobleled.tools.BleViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -149,6 +151,7 @@ fun BleControlScreen(
     var selectedColor by remember { mutableStateOf(Color.White) }
     // 从 ViewModel 收集颜色历史记录
     val colorHistory by vm.colorHistoryFlow.collectAsState(initial = emptyList())
+    var brightness by remember { mutableFloatStateOf(128f) }
 
     Column(
         modifier = Modifier
@@ -271,6 +274,28 @@ fun BleControlScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+        Text("亮度")
+        HorizontalDivider(
+            Modifier.padding(vertical = 6.dp),
+            DividerDefaults.Thickness,
+            DividerDefaults.color
+        )
+        Spacer(Modifier.height(5.dp))
+
+        Slider(
+            value = brightness,
+            onValueChange = { brightness = it },
+            valueRange = 0f..255f,
+            steps = 254, // 让滑块只能取整数
+        )
+
+        // 防抖发送亮度
+        LaunchedEffect(brightness) {
+            delay(40) // 避免每次滑动疯狂发
+            vm.send("BGN ${brightness.roundToInt()}\n")
+        }
+
+        Spacer(Modifier.height(12.dp))
 
         Text("日志")
         HorizontalDivider(
@@ -278,7 +303,7 @@ fun BleControlScreen(
             DividerDefaults.Thickness,
             DividerDefaults.color
         )
-
+        Spacer(Modifier.height(5.dp))
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
