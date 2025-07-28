@@ -56,6 +56,7 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(libs.androidx.datastore.preferences)
     // Accompanist Permissions 库
     implementation(libs.accompanist.permissions) // 最新版本号请查官方
 

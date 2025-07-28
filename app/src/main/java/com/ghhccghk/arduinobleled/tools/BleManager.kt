@@ -2,7 +2,6 @@ package com.ghhccghk.arduinobleled.tools
 
 import android.Manifest
 import android.app.Application
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
@@ -19,21 +18,26 @@ import android.content.pm.PackageManager
 import android.os.ParcelUuid
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
-import kotlin.collections.emptyList
 
 /**
  * 统一封装所有 BLE GATT 操作：
@@ -165,6 +169,33 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val manager = BleManager(app)
     private val context = app.applicationContext
 
+    // ─── DataStore 设置 ───
+    private val Context.dataStore by preferencesDataStore("color_prefs")
+    private val COLOR_HISTORY_KEY = stringSetPreferencesKey("color_history")
+    private val ds = getApplication<Application>().dataStore
+
+
+    // 保存颜色到历史记录
+    fun saveColorToHistory(color: Color) {
+        val argb = color.toArgb().toString() // Int 转 String
+        viewModelScope.launch {
+            context.dataStore.edit { prefs ->
+                val set = prefs[COLOR_HISTORY_KEY]?.toMutableSet() ?: mutableSetOf()
+                set.remove(argb)
+                set.add(argb)
+                // 只保留最近 10 个
+                prefs[COLOR_HISTORY_KEY] = set.toList().takeLast(10).toSet()
+
+            }
+        }
+    }
+
+    // 读取颜色历史
+    val colorHistoryFlow: Flow<List<Color>> = context.dataStore.data.map { prefs ->
+        prefs[COLOR_HISTORY_KEY]?.map { Color(it.toInt()) } ?: emptyList()
+    }
+
+
     val scanResults: StateFlow<List<BluetoothDevice>> =
         manager.scanResults
             .scan(emptyList<BluetoothDevice>()) { list, dev ->
@@ -181,10 +212,12 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
             (list + newLine).takeLast(100) // 保留最新100条
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     fun scan() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN)
             == PackageManager.PERMISSION_GRANTED
-            && isBluetoothEnabled()) {
+            && isBluetoothEnabled()
+        ) {
             viewModelScope.launch { manager.startScan() }
         } else {
             Toast.makeText(context, "没有蓝牙扫描权限", Toast.LENGTH_SHORT).show()
@@ -194,7 +227,8 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun stopScan() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN)
             == PackageManager.PERMISSION_GRANTED
-            && isBluetoothEnabled()) {
+            && isBluetoothEnabled()
+        ) {
             manager.stopScan()
         } else {
             Toast.makeText(context, "没有蓝牙扫描权限", Toast.LENGTH_SHORT).show()
@@ -204,7 +238,8 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun connect(dev: BluetoothDevice) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT)
             == PackageManager.PERMISSION_GRANTED
-            && isBluetoothEnabled()) {
+            && isBluetoothEnabled()
+        ) {
             viewModelScope.launch { manager.connect(dev) }
         } else {
             Toast.makeText(context, "没有蓝牙连接权限", Toast.LENGTH_SHORT).show()
@@ -214,7 +249,8 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun send(cmd: String) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT)
             == PackageManager.PERMISSION_GRANTED
-            && isBluetoothEnabled() ) {
+            && isBluetoothEnabled()
+        ) {
             viewModelScope.launch { manager.sendCommand(cmd) }
         } else {
             Toast.makeText(context, "没有蓝牙连接权限", Toast.LENGTH_SHORT).show()
@@ -222,10 +258,14 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun disconnect() {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-            && isBluetoothEnabled()) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+            && isBluetoothEnabled()
+        ) {
             manager.disconnect()
-        }   else {
+        } else {
             Toast.makeText(context, "没有蓝牙连接权限", Toast.LENGTH_SHORT).show()
         }
     }
